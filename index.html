@@ -138,8 +138,9 @@ if(roomId){
 
     roomTitle.innerText="Комната: " + roomId;
 
+    const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
     ws = new WebSocket(
-        "ws://" + location.host
+        wsProtocol + "//" + location.host
     );
 
     ws.onopen = ()=>{
