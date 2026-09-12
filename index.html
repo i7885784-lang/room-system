@@ -1,0 +1,194 @@
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Room System</title>
+<style>
+body{
+ background:#202225;
+ color:white;
+ font-family:Arial;
+ padding:30px;
+}
+.box{
+ background:#2f3136;
+ padding:25px;
+ border-radius:15px;
+ max-width:700px;
+}
+input,button{
+ padding:10px;
+ margin:5px;
+ border-radius:8px;
+}
+button{cursor:pointer}
+.item{
+ background:#36393f;
+ padding:8px;
+ margin:5px;
+ border-radius:8px;
+}
+</style>
+</head>
+
+<body>
+<div class="box">
+
+<h1>Room System</h1>
+
+<div id="profile"></div>
+
+<input id="name" placeholder="Имя">
+<button onclick="saveName()">Сохранить имя</button>
+
+<br>
+
+<button onclick="createRoom()">Создать комнату</button>
+
+<input id="roomInput" placeholder="ID или ссылка комнаты">
+<button onclick="enterRoom()">Войти</button>
+
+<br>
+
+<button onclick="invite()">Пригласить</button>
+
+<h3 id="roomTitle"></h3>
+
+<h3>Участники</h3>
+<div id="users"></div>
+
+<h3>Чат</h3>
+<div id="chat"></div>
+
+<input id="message" placeholder="Сообщение">
+<button onclick="sendMessage()">Отправить</button>
+
+</div>
+
+<script>
+let username = localStorage.username ||
+("User_" + Math.floor(Math.random()*9000+1000));
+
+localStorage.username = username;
+
+name.value = username;
+profile.innerText = "Профиль: " + username;
+
+let roomId = location.pathname.split("/")[2];
+let ws = null;
+
+function createRoom(){
+    const id = Math.random().toString(36).substring(2,8);
+    location.href="/room/" + id;
+}
+
+function enterRoom(){
+    let value = roomInput.value.trim();
+
+    if(value.includes("/room/")){
+        value = value.split("/room/")[1];
+    }
+
+    value = value.replace(/[^a-zA-Z0-9]/g,"");
+
+    if(value){
+        location.href="/room/" + value;
+    }
+}
+
+function invite(){
+    if(!roomId){
+        alert("Сначала создайте комнату");
+        return;
+    }
+
+    const link = location.origin + "/room/" + roomId;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(link).then(()=>{
+            alert("Ссылка скопирована:\n" + link);
+        }).catch(()=>fallbackCopy(link));
+    } else {
+        fallbackCopy(link);
+    }
+}
+
+function fallbackCopy(link){
+    const area=document.createElement("textarea");
+    area.value=link;
+    document.body.appendChild(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+    alert("Ссылка скопирована:\n" + link);
+}
+
+function saveName(){
+    username = name.value.trim() || username;
+    localStorage.username=username;
+
+    if(ws){
+        ws.send(JSON.stringify({
+            type:"profile",
+            name:username,
+            avatar:"🙂"
+        }));
+    }
+
+    profile.innerText="Профиль: " + username;
+}
+
+function sendMessage(){
+    if(ws && message.value.trim()){
+        ws.send(JSON.stringify({
+            type:"chat",
+            text:message.value
+        }));
+        message.value="";
+    }
+}
+
+if(roomId){
+
+    roomTitle.innerText="Комната: " + roomId;
+
+    const wsProtocol = location.protocol === "https:" ? "wss:" : "ws:";
+    ws = new WebSocket(
+        wsProtocol + "//" + location.host
+    );
+
+    ws.onopen = ()=>{
+        ws.send(JSON.stringify({
+            type:"join",
+            room:roomId,
+            name:username,
+            avatar:"🙂"
+        }));
+    };
+
+    ws.onmessage = e=>{
+        const data = JSON.parse(e.data);
+
+        if(data.type==="users"){
+            users.innerHTML="";
+            data.users.forEach(u=>{
+                users.innerHTML +=
+                "<div class='item'>"+
+                u.avatar+" "+u.name+
+                "</div>";
+            });
+        }
+
+        if(data.type==="chat"){
+            chat.innerHTML +=
+            "<div class='item'>"+
+            data.text+
+            "</div>";
+        }
+    };
+}
+</script>
+
+</body>
+</html>
